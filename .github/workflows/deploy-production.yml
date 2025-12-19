@@ -1,0 +1,62 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  AWS_REGION: us-east-1
+  ENVIRONMENT: production
+
+jobs:
+  deploy:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: ${{ steps.deploy.outputs.api-url }}
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN_PRODUCTION }}
+          aws-region: ${{ env.AWS_REGION }}
+      
+      - name: Synthesize CDK stacks
+        run: bun run --filter=infrastructure cdk:synth
+        env:
+          CDK_ENV: production
+      
+      - name: CDK Diff
+        run: bun run --filter=infrastructure cdk:diff
+        env:
+          CDK_ENV: production
+        continue-on-error: true
+      
+      - name: Deploy CDK stacks
+        id: deploy
+        run: bun run --filter=infrastructure cdk:deploy:prod
+        env:
+          CDK_ENV: production
+      
+      - name: Output API URL
+        run: |
+          API_URL=$(aws cloudformation describe-stacks \
+            --stack-name hono-aws-lambda-api-production \
+            --query 'Stacks[0].Outputs[?OutputKey==`ApiUrl`].OutputValue' \
+            --output text)
+          echo "api-url=$API_URL" >> $GITHUB_OUTPUT
+

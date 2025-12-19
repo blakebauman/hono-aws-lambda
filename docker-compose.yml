@@ -1,0 +1,104 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:17.2
+    container_name: hono-postgres
+    environment:
+      POSTGRES_USER: honoapp
+      POSTGRES_PASSWORD: honoapp_password
+      POSTGRES_DB: honoapp
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U honoapp -d honoapp"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - hono-network
+
+  redis:
+    image: redis:7.5-alpine
+    container_name: hono-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - hono-network
+    command: redis-server --appendonly yes
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    container_name: hono-api
+    ports:
+      - "3000:3000"
+    volumes:
+      # Mount source code for hot-reload
+      - .:/app
+      # Use named volume for node_modules to avoid host conflicts
+      - node_modules:/app/node_modules
+      - api_node_modules:/app/packages/api/node_modules
+      - shared_node_modules:/app/packages/shared/node_modules
+      - infrastructure_node_modules:/app/packages/infrastructure/node_modules
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://honoapp:honoapp_password@postgres:5432/honoapp
+      REDIS_URL: redis://redis:6379
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-dev-secret-key-minimum-32-characters-long-for-local}
+      BETTER_AUTH_URL: http://localhost:3000
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
+      PORT: 3000
+      # Optional: LangChain/LangSmith
+      LANGCHAIN_API_KEY: ${LANGCHAIN_API_KEY:-}
+      LANGSMITH_API_KEY: ${LANGSMITH_API_KEY:-}
+      LANGSMITH_PROJECT: ${LANGSMITH_PROJECT:-dev}
+      LANGSMITH_TRACING: ${LANGSMITH_TRACING:-true}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3000/api/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - hono-network
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  node_modules:
+    driver: local
+  api_node_modules:
+    driver: local
+  shared_node_modules:
+    driver: local
+  infrastructure_node_modules:
+    driver: local
+
+networks:
+  hono-network:
+    driver: bridge
+

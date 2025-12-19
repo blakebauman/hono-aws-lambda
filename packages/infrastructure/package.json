@@ -1,0 +1,27 @@
+{
+  "name": "@hono-aws-lambda/infrastructure",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "cdk:synth": "cdk synth --app 'bun run src/app.ts'",
+    "cdk:diff": "cdk diff --app 'bun run src/app.ts'",
+    "cdk:deploy:staging": "cdk deploy --all --app 'bun run src/app.ts' --context env=staging --require-approval never",
+    "cdk:deploy:prod": "cdk deploy --all --app 'bun run src/app.ts' --context env=production --require-approval never",
+    "cdk:destroy:staging": "cdk destroy --all --app 'bun run src/app.ts' --context env=staging",
+    "cdk:bootstrap": "cdk bootstrap --app 'bun run src/app.ts'",
+    "type-check": "tsc --noEmit",
+    "test": "jest"
+  },
+  "dependencies": {
+    "aws-cdk-lib": "^2.171.0",
+    "constructs": "^10.4.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "typescript": "^5.7.2",
+    "aws-cdk": "^2.171.0",
+    "jest": "^29.7.0",
+    "@types/jest": "^29.5.14"
+  }
+}

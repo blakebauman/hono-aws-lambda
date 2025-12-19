@@ -1,0 +1,13 @@
+[install]
+# Use workspaces
+workspaces = true
+
+# Auto-install peer dependencies
+peer = true
+
+# Production-only installs
+production = false
+
+[install.scopes]
+# Scope configuration if needed
+
